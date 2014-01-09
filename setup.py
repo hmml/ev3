@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from distutils.core import setup
 
-setup(name='ev3',
+setup(name='python-ev3',
       version='0.2',
       description='Python library for Lego Mindstorms EV3',
       author='Gong Yi, hmml',
