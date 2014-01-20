@@ -83,14 +83,14 @@ class EV3ColorSensor(sensor.UartSensor):
         Returns:
             int.
 
-            In ambient mode::
+            In ambient mode:
                 0 -- total darkness
                 74 -- direct light
 
-            In reflect mode::
+            In reflect mode:
                 TODO
 
-            In color mode::
+            In color mode:
                 0 -- 7 (COLOR_NONE, COLOR_BLACK, COLOR_BLUE, COLOR_GREEN, COLOR_YELLOW, COLOR_RED, COLOR_WHITE, COLOR_BROWN)
 
         """
@@ -199,7 +199,7 @@ class EV3IRSensor(sensor.UartSensor):
                direction: -25 (left) -- +25 (right)
                distance: 1 -- 100
 
-        Notes:
+        .. note::
             CHANNEL_1 is top position of switch.
 
         """
@@ -215,7 +215,6 @@ class EV3IRSensor(sensor.UartSensor):
                distance: 1 -- 100
 
         .. note::
-
             Empty channel return (0, -128).
             CHANNEL_1 is top position of switch.
 
