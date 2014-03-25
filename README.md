@@ -38,6 +38,22 @@ Reading sensors:
 
 Generated documentation available at [readthedocs.org](http://ev3.readthedocs.org/en/latest/).
 
+Troubleshooting
+---------------
+
+You may encounter the following problem:
+
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "/usr/local/lib/python2.7/dist-packages/ev3/__init__.py", line 72, in open_all_devices
+        analogdevice.open_device()
+      File "/usr/local/lib/python2.7/dist-packages/ev3/rawdevice/analogdevice.py", line 16, in open_device
+        _analogfile = os.open(lms2012.ANALOG_DEVICE_NAME, os.O_RDWR)
+    OSError: [Errno 2] No such file or directory: '/dev/lms_analog'
+
+In such a situation please invoke:
+
+    # /etc/init.d/lms2012-driver.sh
 
 Status
 ------
