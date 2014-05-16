@@ -49,7 +49,6 @@ class EV3Motor(object):
         motordevice.speed(self.port_mask, speed, True)
     
     def _set_direction(self, direction):
-        print "_direction %d" % direction
         self.direction = direction
 
     """Sets motor's direction"""    
@@ -57,7 +56,6 @@ class EV3Motor(object):
         self._set_direction(direction)
         if (direction == self.MOVE_NONE):
             return
-        print "direction %d" % direction
         motordevice.polarity(self.port_mask, direction)
     
     """Rotates the motor by the given angle at the given speed."""    
