@@ -51,13 +51,15 @@ def open_device():
         _initialized = True
         os.write(_pwmfile, struct.pack('B', lms2012.opPROGRAM_START))
 
-
-def set_types(types):
-    os.write(_pwmfile, struct.pack('5B', lms2012.opOUTPUT_SET_TYPE, *types))
+# This does not look required. Types are TACHO (for the big engines) and MINITACHO for the gun one
+# and firmware should recognize them properly.
+# def set_types(types):
+#    os.write(_pwmfile, struct.pack('5B', lms2012.opOUTPUT_SET_TYPE, *types))
 
 
 def reset(ports):
     os.write(_pwmfile, struct.pack('2B', lms2012.opOUTPUT_RESET, ports))
+    clear_steps(ports)
 
 
 def start(ports):
@@ -84,17 +86,18 @@ def ready(ports):
 #    os.write(_pwmfile, struct.pack('2B',lms2012.opOUTPUT_START,ports))
 
 
+# power 1 - 127 imples polarity 0 (when 1 is min power and 127 is full power)
+# power 255 - 128 imples polarity 1 (where 128 is full power and 255 is min power).
 def power(ports, power, startmotor=True):
     os.write(_pwmfile, struct.pack('3B', lms2012.opOUTPUT_POWER, ports, power))
     if startmotor:
         start(ports)
 
-
+# see notes about power - they apply to speed as well.
 def speed(ports, speed, startmotor=True):
     os.write(_pwmfile, struct.pack('3B', lms2012.opOUTPUT_SPEED, ports, speed))
     if startmotor:
         start(ports)
-
 
 def step_power(ports, power, ramp_up_steps, const_speed_steps, ramp_down_steps, brake=0, startmotor=True):
     steppoweer = lms2012.STEPPOWER()
@@ -109,7 +112,7 @@ def step_power(ports, power, ramp_up_steps, const_speed_steps, ramp_down_steps, 
     if startmotor:
         start(ports)
 
-
+# Time driven moves could be implemented without using this (with other functions and OS timers)
 def time_power(ports, power, ramp_up_time, const_speed_time, ramp_down_time, brake=0, startmotor=True):
     timepower = lms2012.TIMEPOWER()
     timepower.Cmd = lms2012.opOUTPUT_TIME_POWER
@@ -124,6 +127,7 @@ def time_power(ports, power, ramp_up_time, const_speed_time, ramp_down_time, bra
         start(ports)
 
 
+# This is similar to step_power() because P = FV (Power is directly propotional to speed)
 def step_speed(ports, speed, ramp_up_steps, const_speed_steps, ramp_down_steps, brake=0, startmotor=True):
     stepspeed = lms2012.STEPSPEED()
     stepspeed.Cmd = lms2012.opOUTPUT_STEP_SPEED
@@ -137,7 +141,7 @@ def step_speed(ports, speed, ramp_up_steps, const_speed_steps, ramp_down_steps, 
     if startmotor:
         start(ports)
 
-
+# This is similar to step_speed() because P = FV (Power is directly propotional to speed)
 def time_speed(ports, speed, ramp_up_time, const_speed_time, ramp_down_time, brake=0, startmotor=True):
     timespeed = lms2012.TIMESPEED()
     timespeed.Cmd = lms2012.opOUTPUT_TIME_SPEED
@@ -152,6 +156,7 @@ def time_speed(ports, speed, ramp_up_time, const_speed_time, ramp_down_time, bra
         start(ports)
 
 
+# For unknown reasons this seems to freeze the whole control unit.
 def step_sync(ports, speed, turn=0, step=0, brake=0, startmotor=True):
     stepsync = lms2012.STEPSYNC()
     stepsync.Cmd = lms2012.opOUTPUT_STEP_SYNC
@@ -177,20 +182,22 @@ def time_sync(ports, speed, turn=0, time=0, brake=0, startmotor=True):
     if startmotor:
         start(ports)
 
-
-def clear_steps(ports):
-    os.write(_pwmfile, struct.pack('2B', lms2012.opOUTPUT_CLR_COUNT, ports))
+def clear_tacho_sensor(ports):
     port = 0
     while port < 4:
         if (ports & (1 << port)):
             _motordata[port].TachoSensor = 0
         port += 1
 
+def clear_steps(ports):
+    os.write(_pwmfile, struct.pack('2B', lms2012.opOUTPUT_CLR_COUNT, ports))
+    clear_tacho_sensor(ports)
+
 
 def get_speed(port):
     return _motordata[port].Speed
 
-
+# It seems that this returns relevant data only the motor in question is not running
 def get_tacho(port):
     return _motordata[port].TachoCounts
 

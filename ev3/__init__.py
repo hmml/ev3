@@ -44,12 +44,6 @@ MOTOR_B = 1        #: motor slot B
 MOTOR_C = 2        #: motor slot C
 MOTOR_D = 3        #: motor slot D
 
-# Motor bits to operate more than one at once
-MOTOR_A_BIT = 1    #: motor A bit
-MOTOR_B_BIT = 2    #: motor B bit
-MOTOR_C_BIT = 4    #: motor C bit
-MOTOR_D_BIT = 8    #: motor D bit
-
 # EV3 led color
 LED_BLACK = 0         #: no LED
 LED_GREEN = 1         #: green LED

@@ -188,7 +188,7 @@ class EV3IRSensor(sensor.UartSensor):
             CHANNEL_1 is top position of switch.
 
         """
-        return self.get_value_bytes()[chan]
+        return self.get_value_bytes()[channel]
 
     def get_direction_and_distance(self, channel=CHANNEL_1):
         """Get direction and distance (use in seek mode).
@@ -203,7 +203,7 @@ class EV3IRSensor(sensor.UartSensor):
             CHANNEL_1 is top position of switch.
 
         """
-        return self.get_all_direction_and_distance()[chan]
+        return self.get_all_directions_and_distances()[channel]
 
     def get_all_directions_and_distances(self):
         """Get direction and distance for all channels (use in seek mode).
