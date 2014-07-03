@@ -88,7 +88,7 @@ class EV3ColorSensor(sensor.UartSensor):
                 74 -- direct light
 
             In reflect mode:
-                TODO
+                0 -- 100 - depending on amount of the light getting back to the sensor (being reflected).
 
             In color mode:
                 0 -- 7 (COLOR_NONE, COLOR_BLACK, COLOR_BLUE, COLOR_GREEN, COLOR_YELLOW, COLOR_RED, COLOR_WHITE, COLOR_BROWN)

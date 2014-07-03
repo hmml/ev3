@@ -15,23 +15,24 @@ class EV3Motor(object):
     UNKNOWN_SPEED = -1
     
     def __init__(self, port):
-        self.port = port;
-        self.port_mask = (1 << port);
+        self._port = port;
+        # Allowed to be accessed by EV3Drive
+        self._port_mask = (1 << port);
         self.direction = self.MOVE_NONE
     
     """Private method for normalization the speed from 0-100 range to device's 0-127 range.
-      (The device accepts values from 0-255 range however values above 128
-      causes polarization to be inverted this is why 0-127 values are used to respect the direction
-      passed to start())"""    
-    def __to_max_speed(self, speed):
+       (The device accepts values from 0-255 range however values above 128
+       causes polarization to be inverted this is why 0-127 values are used to respect the direction
+       passed to start())"""    
+    def _to_max_speed(self, speed):
         speed = min(speed, self.MAX_SPEED)
         speed = max(speed, 0)
         speed = speed * MAX_SPEED_VALUE / self.MAX_SPEED;
         return speed
     
     """Private method for normalization the speed from device's 0-127 range to 0-100 range.
-      See __to_max_speed()."""
-    def __to_speed_range(self, speed):
+       See _to_max_speed()."""
+    def _to_speed_range(self, speed):
         speed = min(speed, MAX_SPEED_VALUE)
         speed = max(speed, 0)
         speed = speed * self.MAX_SPEED / MAX_SPEED_VALUE;
@@ -43,31 +44,28 @@ class EV3Motor(object):
     def start(self, direction, speed):
         if (direction == self.MOVE_NONE):
             return
-        speed = self.__to_max_speed(speed)
-        motordevice.reset(self.port_mask)
+        speed = self._to_max_speed(speed)
+        motordevice.reset(self._port_mask)
         self.set_direction(direction)
-        motordevice.speed(self.port_mask, speed, True)
-    
-    def _set_direction(self, direction):
-        self.direction = direction
+        motordevice.speed(self._port_mask, speed, True)
 
     """Sets motor's direction"""    
     def set_direction(self, direction):
-        self._set_direction(direction)
+        self.direction = direction
         if (direction == self.MOVE_NONE):
             return
-        motordevice.polarity(self.port_mask, direction)
+        motordevice.polarity(self._port_mask, direction)
     
     """Rotates the motor by the given angle at the given speed."""    
     def rotate(self, direction, speed, angle):
-        motordevice.polarity(self.port_mask, direction)
+        motordevice.polarity(self._port_mask, direction)
         angle = max(0, angle);
-        motordevice.step_speed(self.port_mask, speed, 0, angle, 0)
+        motordevice.step_speed(self._port_mask, speed, 0, angle, 0)
         
     """Stops the motor"""
     def stop(self):
-        motordevice.stop(self.port_mask, False)
-        self._set_direction(self.MOVE_NONE)
+        motordevice.stop(self._port_mask, False)
+        self.direction = self.MOVE_NONE
     
     """Sets motor's speed. If the motor is stopped it's started
        with the given speed and MOVE_FORWARD direction."""    
@@ -79,8 +77,8 @@ class EV3Motor(object):
             self.start(self.MOVE_FORWARD, speed)
             return
 
-        speed = self.__to_max_speed(speed)
-        motordevice.speed(self.port_mask, speed, True)
+        speed = self._to_max_speed(speed)
+        motordevice.speed(self._port_mask, speed, True)
 
     """Accelerates the motor by the given delta.
        If (current speed + delta) exceeds the max speed limit
@@ -104,7 +102,7 @@ class EV3Motor(object):
     
     """Returns current speed of the motor."""    
     def get_speed(self):
-        return self.__to_speed_range(motordevice.get_speed(self.port))
+        return self._to_speed_range(motordevice.get_speed(self._port))
     
     """Returns current direction of the motor."""    
     def get_direction(self):
@@ -113,9 +111,9 @@ class EV3Motor(object):
     """Returns current tacho of the motor."""
     def get_tacho(self):
         if (self.get_direction() == self.MOVE_NONE):
-            return motordevice.get_tacho(self.port)
+            return motordevice.get_tacho(self._port)
         else:
-            return motordevice.get_sensor(self.port)
+            return motordevice.get_sensor(self._port)
 
     
 """Class for manipulating EV3 mindstorm robot's drive consisting of couple of motors.
@@ -128,18 +126,17 @@ class EV3Drive(EV3Motor):
     def __init__(self, motors):
         if not isinstance(motors, collections.Iterable):
             motors = [motors]
-        motors = set(motors)
-        self.map = {}
-        self.motors = []
-        self.port_mask = 0
-        for index, motor_port in enumerate(set(motors)):
-            self.map[motor_port] = index
-            self.motors.insert(motor_port, EV3Motor(motor_port))
-            self.port_mask |= 1 << motor_port
+        self._map = {}
+        self._motors = []
+        self._port_mask = 0
+        for index, motor_port in enumerate(motors):
+            self._map[motor_port] = index
+            self._motors.insert(motor_port, EV3Motor(motor_port))
+            self._port_mask |= 1 << motor_port
         self.direction = self.MOVE_NONE
      
     # Helper allowing to avoid code duplication   
-    def __call_func(self, *args):
+    def _call_func(self, *args):
         which = args[len(args) - 1] # which must always be the last arg
         name = args[len(args) - 2] # name must always be the second arg from the end
         args = args[:len(args)-2] # remove which & name
@@ -148,152 +145,153 @@ class EV3Drive(EV3Motor):
         if (self.MOTOR_ALL in which):
             getattr(super(EV3Drive, self), name)(*args)
         else:
-            for motor_index in set(which):
-                if (motor_index in self.map):
-                    getattr(self.motors[self.map[motor_index]], name)(*args)        
+            for motor_index in which:
+                if (motor_index in self._map):
+                    getattr(self._motors[self._map[motor_index]], name)(*args)        
     
     """Similar to EV3Motor.start() with possibility to point at motor(s)
        which should be started."""
-    def start(self, direction, speed, which = {MOTOR_ALL}):
-        self.__make_sure_direction_is_consistent_everywhere(direction, which)
-        self.__call_func(direction, speed, "start", which)
+    def start(self, direction, speed, which = [MOTOR_ALL]):
+        self._make_sure_direction_is_consistent_everywhere(direction, which)
+        self._call_func(direction, speed, "start", which)
                     
-    def __set_direction(self, direction, which):
-        for motor_index in set(which):
-            if (motor_index in self.map):
-                self.motors[self.map[motor_index]]._set_direction(direction)
+    def _set_direction(self, direction, which):
+        for motor_index in which:
+            if (motor_index in self._map):
+                self._motors[self._map[motor_index]].direction = direction
                 
-    def __make_sure_direction_is_consistent_everywhere(self, direction, which):
+    def _make_sure_direction_is_consistent_everywhere(self, direction, which):
         if (self.MOTOR_ALL in which):
-            self.__set_direction(direction, self.map.keys())
+            self._set_direction(direction, self._map.keys())
                     
     """Similar to EV3Motor.direction() with possibility to point at motor(s)
        polarity pf which should be changed."""    
-    def set_direction(self, direction, which = {MOTOR_ALL}):
+    def set_direction(self, direction, which = [MOTOR_ALL]):
         if (direction == self.MOVE_NONE):
             return
-        self.__make_sure_direction_is_consistent_everywhere(direction, which)
-        self.__call_func(direction, "set_direction", which)
+        self._make_sure_direction_is_consistent_everywhere(direction, which)
+        self._call_func(direction, "set_direction", which)
 
     
     """Similar to EV3Motor.rotate() with possibility to point at motor(s)
        which should be rotated."""        
-    def rotate(self, direction, speed, angle, which = {MOTOR_ALL}):
-        self.__call_func(direction, speed, angle, "rotate", which)
+    def rotate(self, direction, speed, angle, which = [MOTOR_ALL]):
+        self._call_func(direction, speed, angle, "rotate", which)
                     
     """Similar to EV3Motor.stop() with possibility to point at motor(s)
        which should be stopped."""    
-    def stop(self, which = {MOTOR_ALL}):
-        self.__make_sure_direction_is_consistent_everywhere(self.MOVE_NONE, which)        
-        self.__call_func("stop", which)
+    def stop(self, which = [MOTOR_ALL]):
+        self._make_sure_direction_is_consistent_everywhere(self.MOVE_NONE, which)        
+        self._call_func("stop", which)
                     
     """Similar to EV3Motor.set_speed() with possibility to point at motor(s)
        which should be applied the speed change."""    
-    def set_speed(self, speed, which = {MOTOR_ALL}):
-        self.__call_func(speed, "set_speed", which)
+    def set_speed(self, speed, which = [MOTOR_ALL]):
+        self._call_func(speed, "set_speed", which)
     
     """Similar to EV3Motor.accelerate() with possibility to point at motor(s)
        which should be accelerated."""    
-    def accelerate(self, delta, which = {MOTOR_ALL}):
+    def accelerate(self, delta, which = [MOTOR_ALL]):
         if not isinstance(which, collections.Iterable):
             which = [which]
         # Not perfect but good enough. super(EV3Drive, self).accelerate() can't be called.
         if (self.MOTOR_ALL in which):
-            for motor in self.motors:
+            for motor in self._motors:
                 motor.accelerate(delta)
         else:
-            for motor_index in set(which):
-                if (motor_index in self.map):
-                    self.motors[self.map[motor_index]].accelerate(delta)
+            for motor_index in which:
+                if (motor_index in self._map):
+                    self._motors[self._map[motor_index]].accelerate(delta)
                     
     """Similar to EV3Motor.accelerate() with possibility to point at motor(s)
        which should be slowed down."""    
-    def slow_down(self, delta, which = {MOTOR_ALL}):
+    def slow_down(self, delta, which = [MOTOR_ALL]):
         if not isinstance(which, collections.Iterable):
             which = [which]
         # Not perfect but good enough. super(EV3Drive, self).slow_down() can't be called.
         if (self.MOTOR_ALL in which):
-            for motor in self.motors:
+            for motor in self._motors:
                 motor.slow_down(delta)
         else:
-            for motor_index in set(which):
-                if (motor_index in self.map):
-                    self.motors[self.map[motor_index]].slow_down(delta)
+            for motor_index in which:
+                if (motor_index in self._map):
+                    self._motors[self._map[motor_index]].slow_down(delta)
                     
     """Gets speed of a one of the motors."""    
     def get_motor_speed(self, which):
-        if (isinstance(which, collections.Iterable) or which == self.MOTOR_ALL or which not in self.map):
+        if (isinstance(which, collections.Iterable) or which == self.MOTOR_ALL or which not in self._map):
             return self.UNKNOWN_SPEED 
         else:
-            return self.motors[self.map[which]].get_speed()
+            return self._motors[self._map[which]].get_speed()
                  
         
     """Gets direction of a one of the motors."""
     def get_motor_direction(self, which):
-        if (isinstance(which, collections.Iterable) or which == self.MOTOR_ALL or which not in self.map):
+        if (isinstance(which, collections.Iterable) or which == self.MOTOR_ALL or which not in self._map):
             return self.MOVE_NONE
         else:
-            return self.motors[self.map[which]].get_direction()
-        
-    """Turns the drive be slowing down some of the motors to the given |steady_speed| and
-       accelerating the other ones to |moving speed|.
-       The direction of the turn is driven by |where| which either must be TURN_LEFT or
-       must be TURN_RIGHT.
-       If |in_place| is True motors which should be steady during the turn get the direction reverted
-       to make turn faster (so when passing True as |in_place| it's recommended to pass same value as 
-       |steady_speed| and |moving_speed|."""
-    def turn(self, where, moving_speed, steady_speed, left_motors, right_motors, in_place):
-        if (not isinstance(left_motors, collections.Iterable)):
-            left_motors = [left_motors]
-                 
-        if (not isinstance(right_motors, collections.Iterable)):
-            right_motors = [right_motors]
+            return self._motors[self._map[which]].get_direction()
 
-        direction = self.direction
-        left_dir = self.get_motor_direction(left_motors[0])
-        right_dir = self.get_motor_direction(right_motors[0])
-        if (where == self.TURN_LEFT):
-            left_speed = steady_speed
-            right_speed = moving_speed
-            if (in_place):
-                if (direction == self.MOVE_FORWARD):
-                    right_dir = self.MOVE_FORWARD
-                    left_dir = self.MOVE_BACKWARD
-                else:
-                    right_dir = self.MOVE_BACKWARD
-                    left_dir = self.MOVE_FORWARD
-        else:
-            left_speed = moving_speed
-            right_speed = steady_speed
-            if (in_place):
-                if (direction == self.MOVE_FORWARD):
-                    right_dir = self.MOVE_BACKWARD
-                    left_dir = self.MOVE_FORWARD
-                else:
-                    right_dir = self.MOVE_FORWARD
-                    left_dir = self.MOVE_BACKWARD
-        
-        self.set_speed(left_speed, left_motors)
-        self.set_speed(right_speed, right_motors)
-        self.set_direction(left_dir, left_motors)
-        self.set_direction(right_dir, right_motors)
+"""Turns the drive be slowing down some of the motors to the given |steady_speed| and
+   accelerating the other ones to |moving speed| (so the assumption is the drive has some
+   'right' engine(s) and same 'left' one(s)).
+   The direction of the turn is driven by |where| which either must be TURN_LEFT or
+   must be TURN_RIGHT.
+   If |in_place| is True motors which should be steady during the turn get the direction reverted
+   to make turn faster (so when passing True as |in_place| it's recommended to pass same value as 
+   |steady_speed| and |moving_speed|."""
+def turn(drive, where, moving_speed, steady_speed, left_motors, right_motors, in_place):
+    if not drive:
+        return
+    if (not isinstance(left_motors, collections.Iterable)):
+        left_motors = [left_motors]
+             
+    if (not isinstance(right_motors, collections.Iterable)):
+        right_motors = [right_motors]
 
+    direction = drive.direction
+    left_dir = drive.get_motor_direction(left_motors[0])
+    right_dir = drive.get_motor_direction(right_motors[0])
+    if (where == drive.TURN_LEFT):
+        left_speed = steady_speed
+        right_speed = moving_speed
+        if (in_place):
+            if (direction != drive.MOVE_BACKWARD):
+                right_dir = drive.MOVE_FORWARD
+                left_dir = drive.MOVE_BACKWARD
+            else:
+                right_dir = drive.MOVE_BACKWARD
+                left_dir = drive.MOVE_FORWARD
+    else:
+        left_speed = moving_speed
+        right_speed = steady_speed
+        if (in_place):
+            if (direction != drive.MOVE_BACKWARD):
+                right_dir = drive.MOVE_BACKWARD
+                left_dir = drive.MOVE_FORWARD
+            else:
+                right_dir = drive.MOVE_FORWARD
+                left_dir = drive.MOVE_BACKWARD
     
+    drive.set_speed(left_speed, left_motors)
+    drive.set_speed(right_speed, right_motors)
+    drive.set_direction(left_dir, left_motors)
+    drive.set_direction(right_dir, right_motors)
     
 """Class for manipulating EV3 mindstorm robot's canon."""
 class EV3Canon(EV3Motor):
-    UP = EV3Motor.MOVE_FORWARD
-    STRAIGHT = EV3Motor.MOVE_BACKWARD
+    STRAIGHT = EV3Motor.MOVE_FORWARD
+    UP = EV3Motor.MOVE_BACKWARD
     MAX_POWER = EV3Motor.MAX_SPEED
     
     # |number_rotations_to_fire_one_bullet| depends on the construction i.e.
     # motor used cogwheels etc.
     def __init__(self, port, number_rotations_to_fire_one_bullet):
         super(EV3Canon, self).__init__(port)
-        self.__bullet_coef = number_rotations_to_fire_one_bullet
+        self._bullet_coef = number_rotations_to_fire_one_bullet
         
     def shoot(self, direction, power, number_of_bullets):
-        rot = 360 * number_of_bullets * self.__bullet_coef
+        rot = 360 * number_of_bullets * self._bullet_coef
         
         # current = abs(super(EV3Canon, self).get_tacho())
         # super(EV3Canon, self).start(direction, power)

@@ -169,16 +169,37 @@ def set_led(light):
     """
     ui.set_led(light)
 
+""" Register an event identified by |predicate| with the handler and handler's args.
 
-def registerEvent(predicate, handle):
-    events[predicate] = handle
+    The event is assumed to occure if |predicate| returns True.
 
+    Args:
+        predicate (callbale): The predicate for the event.
+        handle (callable): The handler for the event.
+        args (list): Handler's arguments
+        
+    Returns:
+        The dictionary with the old handler and its args previously registered
+        for the event. Handler can be found under 'handle' key and args are under
+        'args'.
+"""
+def registerEvent(predicate, handle, *args):
+    result = None
+    if predicate in _events:
+        result = _events[predicate]
+    _events[predicate] = {'handle': handle, 'args': args}
+    return result
+    
+def unregisterEvent(predicate):
+    if predicate in _events:
+        del _events[predicate]
 
 def run():
     while True:
         if ui.is_pressed(BUTTON_BACK):
             break
-        for predicate, handle in events.iteritems():
+        events = _events
+        for predicate, data in events.items():
             if predicate():
-                handle()
+                data['handle'](*data['args'])
         time.sleep(0)
